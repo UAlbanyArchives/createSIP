@@ -9,6 +9,8 @@ import time
 import hashlib
 import bagit
 import datetime
+from openpyxl import load_workbook
+from operator import itemgetter
 
 #hash function
 #from http://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
@@ -22,6 +24,11 @@ def hashfile(afile, hasher, blocksize=65536):
 
 #version of createSIP.py
 version = "0.1"
+#preservation directory
+if os.name == "nt":
+	presDir = "\\\\LINCOLN\\Masters\\Special Collections\\accessions"
+else:
+	presDir = "/media/bcadmin/Lincoln/Special Collections/accessions"
 	
 argParse = argparse.ArgumentParser()
 argParse.add_argument("path", help="Path of data you want to accession.")
@@ -69,6 +76,7 @@ try:
 		address3 = meta.find("profile/address3").text
 		archivistNotes = meta.find("profile/notes").text
 		accessConcerns = meta.find("folder/access").text
+		description = meta[1].find("description").text
 
 		submitTime = meta.attrib["submittedPosix"]
 		submitTimeReadable = meta.attrib["submitted"]
@@ -90,13 +98,14 @@ try:
 			print "Please enter metadata for this accession:"
 
 
-		def getInput(collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns):
+		def getInput(collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes):
 			collectionID = raw_input("Collection ID[" + collectionID + "]: ") or collectionID
 			donor = raw_input("Donor[" + donor + "]: ") or donor
 
+			description = raw_input("Describe the accession:[" + description + "]: ") or description
 			accessConcerns = raw_input("Any access concerns?[" + accessConcerns + "]: ") or accessConcerns
 			transferMethod = raw_input("Method of Transfer[" + transferMethod + "]: ") or transferMethod
-			transferLocation = raw_input("SIP Destination[" + transferLocation + "]: ") or transferLocation
+			transferLocation = raw_input("Transfer Location[" + transferLocation + "]: ") or transferLocation
 			creator = raw_input("Records Creator[" + creator + "]: ") or creator
 			role = raw_input("Role of " + donor + "[" + role + "]: ") or role
 			contactEmail = raw_input("Contact Email[" + contactEmail + "]: ") or contactEmail
@@ -112,10 +121,10 @@ try:
 			print "########################################"
 			print "Collection ID: " + collectionID
 			print "Donor: " + donor
+			print "Description: " + description
 			print "Access Concerns: " + accessConcerns
 			print "Method of Transfer: " + transferMethod
-			print "Donor: " + transferLocation
-			print "SIP Destination: " + transferLocation
+			print "Transfer Location: " + transferLocation
 			print "Records Creator: " + creator
 			print "Role of " + donor + ": " + role
 			print "Contact Email: " + contactEmail
@@ -127,9 +136,9 @@ try:
 
 			entryCorrect = raw_input("Is this correct? (Y or N): ")
 			if not entryCorrect.lower() == "y" or entryCorrect.lower() == "yes":
-				collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns = getInput(collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns)
+				collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes = getInput(collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes)
 			else:
-				return collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns
+				return collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes
 
 
 		
@@ -137,6 +146,8 @@ try:
 		#this is the default metadata
 		collectionID = ""
 		donor = ""
+		description = ""
+		accessConcerns = ""
 		transferMethod = ""
 		transferLocation = rootPath
 		creator = ""
@@ -147,8 +158,7 @@ try:
 		address2 = ""
 		address3 = ""
 		archivistNotes = ""
-		accessConcerns = ""
-		collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns = getInput(collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns)
+		collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, = getInput(collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes)
 		accessionNumber = collectionID + "-" + str(uuid.uuid4())
 
 	#get size of accession
@@ -300,8 +310,12 @@ try:
 		bagEvent = ET.Element("event")
 		bagEvent.set("timestamp", str(time.time()))
 		bagEvent.set("humanTime", str(time.strftime("%Y-%m-%d %H:%M:%S")))
-		bagEvent.text = "Submission Information Package (SIP) created with createSIP.py version " + version
-		if len(transferEvent) > 0:
+		bagEvent.text = "Submission Information Package (SIP) created with createSIP.py version " + version	
+		if len(accessConcerns) > 0:
+			sipRoot[1].find("access").text = accessConcerns
+		if len(description) > 0:
+			sipRoot[1].find("description").text = description
+		if len(transferMethod) > 0:
 			transferEvent = ET.Element("event")
 			transferEvent.set("timestamp", "")
 			transferEvent.set("humanTime", "")
@@ -319,7 +333,22 @@ try:
 		file.close()
 	
 	#create accession record
-	
+	accessionFile = os.path.join(presDir, "accessions.xlsx")
+	accessionsWorkbook = load_workbook(filename = accessionFile, use_iterators=True, read_only=False)
+	accessions = accessionsWorkbook.get_sheet_by_name('accessions')
+	if sipRoot[1].find("description").text is None:
+		accessDesc = ""
+	else:
+		accessDesc = sipRoot[1].find("description").text
+	if sipRoot[1].find("access").text is None:
+		restrictSwitch = "False"
+		accessRestrict = ""
+	else:
+		restrictSwitch = "True"
+		accessRestrict = sipRoot[1].find("access").text
+	#HERE:
+	accessions.append([accessionNumber, submitTimeReadable.split(" ")[0], creator + "; Transfer: " + transferMethod, accessDesc, str(sipSize), restrictSwitch, accessRestrict, "", "", archivistNotes])
+	accessionsWorkbook.save(accessionFile)
 	
 	#move data into bag
 	if args.v:
@@ -403,6 +432,10 @@ try:
 	    print "Compressing bag"
 	shutil.make_archive(accessionPath, "zip", accessionPath)
 	shutil.rmtree(accessionPath)
+	
+	#move bag to storage
+	print accessionPath + ".zip"
+	shutil.copy2(accessionPath + ".zip", os.path.join(presDir, "SIP"))
 
 except:
 	exceptMsg = str(traceback.format_exc())
