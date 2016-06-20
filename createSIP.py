@@ -8,6 +8,7 @@ import zipfile
 import time
 import hashlib
 import bagit
+import datetime
 
 #hash function
 #from http://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
@@ -19,7 +20,9 @@ def hashfile(afile, hasher, blocksize=65536):
     return hasher.digest()
 
 
-
+#version of createSIP.py
+version = "0.1"
+	
 argParse = argparse.ArgumentParser()
 argParse.add_argument("path", help="Path of data you want to accession.")
 argParse.add_argument("-m", help="Use previously created metadata XML instead of filesystem data.")
@@ -39,6 +42,11 @@ try:
 	submitTime = time.time()
 	submitTimeReadable = str(time.strftime("%Y-%m-%d %H:%M:%S"))
 
+	if os.name == "nt":
+		pathDelimiter = "\\"
+	else:
+		pathDelimiter = "/"
+		
 	#if flag for premade metadata file
 	if args.m:
 		if args.v:
@@ -65,6 +73,17 @@ try:
 		submitTime = meta.attrib["submittedPosix"]
 		submitTimeReadable = meta.attrib["submitted"]
 		accessionNumber = meta.attrib["number"]
+		
+		#add curatorial event to pre-made metadata file
+		bagEvent = ET.Element("event")
+		bagEvent.set("timestamp", str(time.time()))
+		bagEvent.set("humanTime", str(time.strftime("%Y-%m-%d %H:%M:%S")))
+		bagEvent.text = "Submission Information Package (SIP) created with createSIP.py version " + version
+		meta[1].find("curatorialEvents").append(bagEvent)
+		metaString = ET.tostring(meta, pretty_print=True)
+		file = open(args.m, "w")
+		file.write(metaString)
+		file.close()
 
 	else:
 		if args.v:
@@ -115,12 +134,13 @@ try:
 
 		
 		#get SIP metadata from processor input
+		#this is the default metadata
 		collectionID = ""
-		donor = "Gregory Wiedeman"
+		donor = ""
 		transferMethod = ""
 		transferLocation = rootPath
 		creator = ""
-		role = "Archivist"
+		role = ""
 		contactEmail = ""
 		office = ""
 		address1 = ""
@@ -129,26 +149,52 @@ try:
 		archivistNotes = ""
 		accessConcerns = ""
 		collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns = getInput(collectionID, donor, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, accessConcerns)
-		accessionNumber = collectionID + str(uuid.uuid4())
+		accessionNumber = collectionID + "-" + str(uuid.uuid4())
 
-	#move data into bag
-	if args.v:
-	    print "Moving data into bag"
+	#get size of accession
+	#from here: http://stackoverflow.com/questions/1392413/calculating-a-directory-size-using-python
+	def get_size(start_path = '.'):
+		total_size = 0
+		for dirpath, dirnames, filenames in os.walk(start_path):
+			for f in filenames:
+				fp = os.path.join(dirpath, f)
+				total_size += os.path.getsize(fp)
+		return total_size
+	sipSize = get_size(args.path)
+	#make Human-readable
+	#from here: http://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
+	from math import log
+	unit_list = zip(['bytes', 'KB', 'MB', 'GB', 'TB', 'PB'], [0, 0, 1, 2, 2, 2])
+	def sizeof_fmt(num):
+		"""Human friendly file size"""
+		if num > 1:
+			exponent = min(int(log(num, 1024)), len(unit_list) - 1)
+			quotient = float(num) / 1024**exponent
+			unit, num_decimals = unit_list[exponent]
+			format_string = '{:.%sf} {}' % (num_decimals)
+			return format_string.format(quotient, unit)
+		if num == 0:
+			return '0 bytes'
+		if num == 1:
+			return '1 byte'
+	sipSizeHR = sizeof_fmt(sipSize)
+	
+	#prepare bag
 	accessionPath = os.path.join(rootPath, accessionNumber)
 	os.mkdir(accessionPath)
-	os.mkdir(os.path.join(accessionPath, "data"))
-	shutil.move(args.path, os.path.join(accessionPath, "data"))
-
+	os.mkdir(os.path.join(accessionPath, "data"))	
+	
 	#move or create metadata file
 	if args.m:
 		if args.v:
 			print "Moving metadata file to bag."
-		shutil.move(args.b, accessionPath)
+		shutil.move(args.m, accessionPath)
 	else:
 		if args.v:
 			print "Creating metadata file."
 	    #create sipXML root
 		sipRoot = ET.Element("accession")
+		sipRoot.set("version", version)
 		sipRoot.set("number", accessionNumber)
 		sipRoot.set("submitted", submitTimeReadable)
 		sipRoot.set("submittedPosix", str(submitTime))
@@ -181,13 +227,104 @@ try:
 		locationXML.text = transferLocation
 		extentXML = ET.SubElement(profileXML, "extent")
 		extentXML.set("unit", "bytes")
-
+		extentXML.text = str(sipSize)
+		extentXML.set("humanReadable", sipSizeHR)
+		
+		#create content metadata
+		#create metadata record
+		def makeRecord(path):
+			if os.path.isdir(path):
+				record = ET.Element("folder")
+				atime = os.path.getatime(path)
+				mtime = os.path.getmtime(path)
+				ctime = os.path.getctime(path)
+			else:
+				record = ET.Element("file")
+				(mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(path)
+			record.set("name", os.path.basename(path))
+			idXML = ET.SubElement(record, "id")
+			idXML.text = str(uuid.uuid4())
+			pathXML = ET.SubElement(record, "path")
+			pathXML.text = path
+			descriptionXML = ET.SubElement(record, "description")
+			accessXML = ET.SubElement(record, "access")
+			curatorialEventsXML = ET.SubElement(record, "curatorialEvents")
+			recordEventsXML = ET.SubElement(record, "recordEvents")
+			#recordEvents
+			atimeXML = ET.SubElement(recordEventsXML, "timestamp")
+			atimeXML.text = str(atime)
+			atimeXML.set("os", os.name)
+			atimeXML.set("timeType", "posix")
+			atimeXML.set("parser", "os.stat")
+			if os.name == "nt":
+				atimeXML.set("type", "STANDARD_INFORMATION")
+			atimeXML.set("label", "atime")
+			atimeXML.set("humanTime", datetime.datetime.fromtimestamp(int(atime)).strftime('%Y-%m-%d %H:%M:%S'))
+			mtimeXML = ET.SubElement(recordEventsXML, "timestamp")
+			mtimeXML.text = str(mtime)
+			mtimeXML.set("os", os.name)
+			mtimeXML.set("timeType", "posix")
+			mtimeXML.set("parser", "os.stat")
+			if os.name == "nt":
+				mtimeXML.set("type", "STANDARD_INFORMATION")
+			mtimeXML.set("label", "mtime")
+			mtimeXML.set("humanTime", datetime.datetime.fromtimestamp(int(mtime)).strftime('%Y-%m-%d %H:%M:%S'))
+			ctimeXML = ET.SubElement(recordEventsXML, "timestamp")
+			ctimeXML.text = str(ctime)
+			ctimeXML.set("os", os.name)
+			ctimeXML.set("timeType", "posix")
+			ctimeXML.set("parser", "os.stat")
+			if os.name == "nt":
+				ctimeXML.set("type", "STANDARD_INFORMATION")
+			ctimeXML.set("label", "ctime")
+			ctimeXML.set("humanTime", datetime.datetime.fromtimestamp(int(ctime)).strftime('%Y-%m-%d %H:%M:%S'))
+			eventOsStat = ET.Element("event")
+			eventOsStat.set("timestamp", str(time.time()))
+			eventOsStat.set("humanTime", str(time.strftime("%Y-%m-%d %H:%M:%S")))
+			eventOsStat.text = "ran os.stat to gather timestamps"
+			curatorialEventsXML.append(eventOsStat)
+			
+			return record
+		
+		#loop thorugh directory and create records
+		def loopAccession(path, root):
+			if os.path.isdir(path):
+				record = makeRecord(path)
+				root.append(record)
+				for item in os.listdir(path):
+					root = loopAccession(os.path.join(path, item), record)
+			else:
+				root.append(makeRecord(path))
+			return root
+		sipRoot.append(loopAccession(args.path, sipRoot))
+		bagEvent = ET.Element("event")
+		bagEvent.set("timestamp", str(time.time()))
+		bagEvent.set("humanTime", str(time.strftime("%Y-%m-%d %H:%M:%S")))
+		bagEvent.text = "Submission Information Package (SIP) created with createSIP.py version " + version
+		if len(transferEvent) > 0:
+			transferEvent = ET.Element("event")
+			transferEvent.set("timestamp", "")
+			transferEvent.set("humanTime", "")
+			transferEvent.text = transferMethod
+			sipRoot[1].find("curatorialEvents").insert(0, transferEvent)
+			sipRoot[1].find("curatorialEvents").insert(1, bagEvent)
+		else:
+			sipRoot[1].find("curatorialEvents").insert(0, bagEvent)
+		
 		#serializing metadata file
 		outputMeta = os.path.join(accessionPath, accessionNumber + ".xml")
 		XMLString = ET.tostring(sipRoot, pretty_print=True)
 		file = open(outputMeta, "w")
 		file.write(XMLString)
 		file.close()
+	
+	#create accession record
+	
+	
+	#move data into bag
+	if args.v:
+	    print "Moving data into bag"
+	shutil.move(args.path, os.path.join(accessionPath, "data"))
 
 	#create manifest and get Payload-Oxum
 	if args.v:
@@ -200,7 +337,7 @@ try:
 		for f in files:
 			fp = os.path.join(root, f)
 			md5 = str(hashlib.md5(open(fp, 'rb').read()).hexdigest())
-			manifestList.append(md5 + "  " + fp.split(accessionPath + "/")[1])
+			manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1])
 			octetCount += os.path.getsize(fp)
 	manifest = open(os.path.join(accessionPath, "manifest-md5.txt"), "w")
 	for manLine in manifestList:
