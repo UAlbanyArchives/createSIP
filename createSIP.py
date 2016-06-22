@@ -334,7 +334,7 @@ try:
 	
 	#create accession record
 	accessionFile = os.path.join(presDir, "accessions.xlsx")
-	accessionsWorkbook = load_workbook(filename = accessionFile, use_iterators=True, read_only=False)
+	accessionsWorkbook = load_workbook(accessionFile, False)
 	accessions = accessionsWorkbook.get_sheet_by_name('accessions')
 	if sipRoot[1].find("description").text is None:
 		accessDesc = ""
@@ -346,7 +346,6 @@ try:
 	else:
 		restrictSwitch = "True"
 		accessRestrict = sipRoot[1].find("access").text
-	#HERE:
 	accessions.append([accessionNumber, submitTimeReadable.split(" ")[0], creator + "; Transfer: " + transferMethod, accessDesc, str(sipSize), restrictSwitch, accessRestrict, "", "", archivistNotes])
 	accessionsWorkbook.save(accessionFile)
 	
@@ -434,8 +433,8 @@ try:
 	shutil.rmtree(accessionPath)
 	
 	#move bag to storage
-	print accessionPath + ".zip"
 	shutil.copy2(accessionPath + ".zip", os.path.join(presDir, "SIP"))
+	os.remove(accessionPath + ".zip")
 
 except:
 	exceptMsg = str(traceback.format_exc())
