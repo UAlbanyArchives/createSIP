@@ -34,6 +34,7 @@ argParse = argparse.ArgumentParser()
 argParse.add_argument("path", help="Path of data you want to accession.")
 argParse.add_argument("-m", help="Use previously created metadata XML instead of filesystem data.")
 argParse.add_argument("-b", help="Validate bag with bagit-python after created.", action="store_true")
+argParse.add_argument("-z", help="Compress bag to zip.", action="store_true")
 argParse.add_argument("-v", help="Increase output verbosity.", action="store_true")
 args = argParse.parse_args()
 
@@ -427,14 +428,24 @@ try:
 				print "Bag is valid"
 
 	#compress bag
-	if args.v:
-	    print "Compressing bag"
-	shutil.make_archive(accessionPath, "zip", accessionPath)
-	shutil.rmtree(accessionPath)
+	if args.z:
+		if args.v:
+		    print "Compressing bag"
+		try:
+			shutil.make_archive(accessionPath, "zip", accessionPath)
+			shutil.rmtree(accessionPath)
+		except:
+			print "Error compressing file, maybe to large for regular zip moving SIP uncompressed"
+			args.z = None
 	
 	#move bag to storage
-	shutil.copy2(accessionPath + ".zip", os.path.join(presDir, "SIP"))
-	os.remove(accessionPath + ".zip")
+	if args.v:
+		print "Moving bag to storage."
+	if args.z:
+		shutil.copy2(accessionPath + ".zip", os.path.join(presDir, "SIP"))
+		os.remove(accessionPath + ".zip")
+	else:
+		shutil.move(accessionPath, os.path.join(presDir, "SIP"))
 
 except:
 	exceptMsg = str(traceback.format_exc())
