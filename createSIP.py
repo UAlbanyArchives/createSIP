@@ -455,6 +455,8 @@ try:
 			moveSIP = Popen(moveCmd, shell=True, stdout=PIPE, stderr=PIPE)
 			stdout, stderr = moveSIP.communicate()
 			os.remove(accessionPath)
+			if len(stderr) > 0:
+				print stderr
 except:
 	exceptMsg = str(traceback.format_exc())
 	print exceptMsg
