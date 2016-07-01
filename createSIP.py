@@ -11,6 +11,7 @@ import bagit
 import datetime
 from openpyxl import load_workbook
 from operator import itemgetter
+from subprocess import Popen, PIPE
 
 #hash function
 #from http://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
@@ -64,7 +65,7 @@ try:
 		meta = metaInput.getroot()
 
 		#get SIP metadata from premade metadata XML file
-		collectionID = meta.find("profile/creatorID").text
+		collectionID = meta.find("profile/creatorId").text
 		donor = meta.find("profile/donor").text
 		transferMethod = meta.find("profile/method").text
 		transferLocation = meta.find("profile/location").text
@@ -199,6 +200,7 @@ try:
 	if args.m:
 		if args.v:
 			print "Moving metadata file to bag."
+		sipRoot = meta
 		shutil.move(args.m, accessionPath)
 	else:
 		if args.v:
@@ -445,8 +447,14 @@ try:
 		shutil.copy2(accessionPath + ".zip", os.path.join(presDir, "SIP"))
 		os.remove(accessionPath + ".zip")
 	else:
-		shutil.move(accessionPath, os.path.join(presDir, "SIP"))
-
+		if os.name == "nt":
+			shutil.move(accessionPath, os.path.join(presDir, "SIP"))
+		else:
+			moveCmd = "sudo cp -p -r '" + accessionPath + "' '" + os.path.join(presDir, "SIP'")
+			print moveCmd
+			moveSIP = Popen(moveCmd, shell=True, stdout=PIPE, stderr=PIPE)
+			stdout, stderr = moveSIP.communicate()
+			os.remove(accessionPath)
 except:
 	exceptMsg = str(traceback.format_exc())
 	print exceptMsg
