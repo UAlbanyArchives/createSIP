@@ -6,6 +6,7 @@ import sys
 import shutil
 from lxml import etree as ET
 import uuid
+import shortuuid
 import traceback
 import zipfile
 import time
@@ -25,6 +26,16 @@ def hashfile(afile, hasher, blocksize=65536):
         buf = afile.read(blocksize)
     return hasher.digest()
 
+#for windows permissions issues
+#from http://stackoverflow.com/questions/2656322/python-shutil-rmtree-fails-on-windows-with-access-is-denied
+def onerror(func, path, exc_info):
+	import stat
+	if not os.access(path, os.W_OK):
+		# Is the error an access error ?
+		os.chmod(path, stat.S_IWUSR)
+		func(path)
+	else:
+		raise
 	
 reload(sys)
 sys.setdefaultencoding('UTF8')
@@ -168,7 +179,7 @@ try:
 		address3 = ""
 		archivistNotes = ""
 		collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes, = getInput(collectionID, donor, description, accessConcerns, transferMethod, transferLocation, creator, role, contactEmail, office, address1, address2, address3, archivistNotes)
-		accessionNumber = collectionID + "-" + str(uuid.uuid4())
+		accessionNumber = collectionID + "-" + str(shortuuid.uuid())
 
 	#get size of accession
 	#from here: http://stackoverflow.com/questions/1392413/calculating-a-directory-size-using-python
@@ -379,7 +390,11 @@ try:
 		for f in files:
 			fp = os.path.join(root, f)
 			md5 = str(hashlib.md5(open(fp, 'rb').read()).hexdigest())
-			manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1])
+			#replace windows paths with unix paths
+			if os.name == "nt":
+				manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1].replace("\\", "/").decode("mbcs"))
+			else:
+				manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1].replace("\\", "/").decode("utf8"))
 			octetCount += os.path.getsize(fp)
 	manifest = open(os.path.join(accessionPath, "manifest-md5.txt"), "w")
 	for manLine in manifestList:
@@ -459,7 +474,21 @@ try:
 		os.remove(accessionPath + ".zip")
 	else:
 		if os.name == "nt":
-			shutil.move(accessionPath, os.path.join(presDir, "SIP"))
+			moveCmd = "robocopy \"" + accessionPath + "\" \"" + os.path.join(presDir, "SIP", os.path.basename(accessionPath)) + "\" /e"
+			print moveCmd
+			moveSIP = Popen(moveCmd, shell=True, stdout=PIPE, stderr=PIPE)
+			stdout, stderr = moveSIP.communicate()
+			if os.path.isdir(accessionPath):
+				print "had to remove old dir"
+				if os.name == "nt":
+					shutil.rmtree(accessionPath, onerror=onerror)
+				else:
+					shutil.rmtree(accessionPath)
+			if len(stdout) > 0:
+				print stdout
+			if len(stderr) > 0:
+				print stderr
+			#shutil.move(accessionPath, os.path.join(presDir, "SIP"))
 		else:
 			moveCmd = "sudo cp -p -r '" + accessionPath + "' '" + os.path.join(presDir, "SIP'")
 			print moveCmd
