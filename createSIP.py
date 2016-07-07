@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
+
 import argparse
 import os
+import sys
 import shutil
 from lxml import etree as ET
 import uuid
@@ -21,6 +24,10 @@ def hashfile(afile, hasher, blocksize=65536):
         hasher.update(buf)
         buf = afile.read(blocksize)
     return hasher.digest()
+
+	
+reload(sys)
+sys.setdefaultencoding('UTF8')
 
 
 #version of createSIP.py
@@ -246,6 +253,10 @@ try:
 		#create content metadata
 		#create metadata record
 		def makeRecord(path):
+			if os.name == "nt":
+				path = path.decode("mbcs")
+			else:
+				path = path.decode("utf8")
 			if os.path.isdir(path):
 				record = ET.Element("folder")
 				atime = os.path.getatime(path)
