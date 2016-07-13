@@ -491,10 +491,13 @@ try:
 			#shutil.move(accessionPath, os.path.join(presDir, "SIP"))
 		else:
 			moveCmd = "sudo cp -p -r '" + accessionPath + "' '" + os.path.join(presDir, "SIP'")
-			print moveCmd
+			#print moveCmd
 			moveSIP = Popen(moveCmd, shell=True, stdout=PIPE, stderr=PIPE)
 			stdout, stderr = moveSIP.communicate()
-			os.remove(accessionPath)
+			if os.path.isdir(accessionPath):
+				shutil.rmtree(accessionPath)
+			else:
+				os.remove(accessionPath)
 			if len(stderr) > 0:
 				print stderr
 except:
