@@ -484,10 +484,10 @@ try:
 					shutil.rmtree(accessionPath, onerror=onerror)
 				else:
 					shutil.rmtree(accessionPath)
-			if len(stdout) > 0:
-				print stdout
-			if len(stderr) > 0:
-				print stderr
+			#if len(stdout) > 0:
+				#print stdout
+			#if len(stderr) > 0:
+				#print stderr
 			#shutil.move(accessionPath, os.path.join(presDir, "SIP"))
 		else:
 			moveCmd = "sudo cp -p -r '" + accessionPath + "' '" + os.path.join(presDir, "SIP'")
@@ -500,6 +500,9 @@ try:
 				os.remove(accessionPath)
 			if len(stderr) > 0:
 				print stderr
+				
+	print os.path.join(presDir, "SIP", os.path.basename(accessionPath))
+				
 except:
 	exceptMsg = str(traceback.format_exc())
 	print exceptMsg
