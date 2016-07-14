@@ -501,7 +501,7 @@ try:
 			if len(stderr) > 0:
 				print stderr
 				
-	print os.path.join(presDir, "SIP", os.path.basename(accessionPath))
+	print "|||" + os.path.join(presDir, "SIP", os.path.basename(accessionPath))
 				
 except:
 	exceptMsg = str(traceback.format_exc())
