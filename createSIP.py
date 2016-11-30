@@ -388,14 +388,17 @@ try:
 	for root, dirs, files in os.walk(os.path.join(accessionPath, "data")):
 		streamCount += len(files)
 		for f in files:
-			fp = os.path.join(root, f)
-			md5 = str(hashlib.md5(open(fp, 'rb').read()).hexdigest())
-			#replace windows paths with unix paths
-			if os.name == "nt":
-				manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1].replace("\\", "/").decode("mbcs"))
+			if f.lower() == "thumbs.db" or f.lower() == ".ds_store" or f.lower() == "desktop.ini":
+				os.remove(os.path.join(root, f))
 			else:
-				manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1].replace("\\", "/").decode("utf8"))
-			octetCount += os.path.getsize(fp)
+				fp = os.path.join(root, f)
+				md5 = str(hashlib.md5(open(fp, 'rb').read()).hexdigest())
+				#replace windows paths with unix paths
+				if os.name == "nt":
+					manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1].replace("\\", "/").decode("mbcs"))
+				else:
+					manifestList.append(md5 + "  " + fp.split(accessionPath + pathDelimiter)[1].replace("\\", "/").decode("utf8"))
+				octetCount += os.path.getsize(fp)
 	manifest = open(os.path.join(accessionPath, "manifest-md5.txt"), "w")
 	for manLine in manifestList:
 		manifest.write("%s\n" % manLine)
