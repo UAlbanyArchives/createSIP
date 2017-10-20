@@ -38,27 +38,23 @@ def onerror(func, path, exc_info):
 		raise
 	
 reload(sys)
-sys.setdefaultencoding('UTF8')
+sys.setdefaultencoding('utf-8')
 
 
 #version of createSIP.py
-version = "0.1"
-#preservation directory
-if os.name == "nt":
-	presDir = "\\\\LINCOLN\\Masters\\Special Collections\\accessions"
-else:
-	presDir = "/media/bcadmin/Lincoln/Special Collections/accessions"
+version = "0.2"
 	
 argParse = argparse.ArgumentParser()
 argParse.add_argument("path", help="Path of data you want to accession.")
-argParse.add_argument("-m", help="Use previously created metadata XML instead of filesystem data.")
+argParse.add_argument("output", help="Directory where the bag will be made.")
+argParse.add_argument("-m", help="Use previously created metadata file instead of filesystem data.")
 argParse.add_argument("-b", help="Validate bag with bagit-python after created.", action="store_true")
 argParse.add_argument("-z", help="Compress bag to zip.", action="store_true")
 argParse.add_argument("-v", help="Increase output verbosity.", action="store_true")
 args = argParse.parse_args()
 
 try:
-	print args.path
+	print ("reading " + str(args.path))
 	if not os.path.isdir(args.path):
 		raise ValueError("Invalid Directory")
 

@@ -1,0 +1,78 @@
+{
+     "BagIt-Profile-Info":{
+      "BagIt-Profile-Identifier":"http://library.albany.edu/speccoll/findaids/eresources/standards/bagit/bag-profile-v0.1.txt",
+      "Source-Organization":"University at Albany, SUNY",
+      "Contact-Name":"Brian Keough",
+      "Contact-Email":"bkeough@albany.edu",
+      "External-Description":"BagIt profile for transferring records from university offices or outside donors to the M.E. Grenander Department of Special Collections and Archives",
+      "Version":"0.1"
+   },
+   "Bag-Info":{
+      "Records-Creator":{
+         "required":true,
+         "values":[
+            "Office of the President",
+            "Office of Academic Affairs and Provost",
+            "University Senate",
+            "Department of Digital Media"
+         ],
+         "repeatable":false
+      },
+	   "Creator-Identifier":{
+        "required":true,
+        "repeatable":false
+      },
+      "Transfer-Identifier":{
+        "required":true,
+        "repeatable":false
+      },
+      "Donor-Description":{
+         "required":false,
+         "repeatable":false
+      },
+      "Records-Donor":{
+        "required":true,
+        "repeatable":false
+      },
+	  "Donor-Contact":{
+        "required":false,
+        "repeatable":true
+      },
+	  "Source-Location":{
+         "required":true,
+         "repeatable":false
+      },
+	  "Transfer-Method":{
+         "required":true,
+         "repeatable":false
+      },
+      "Bagging-Date":{
+         "required":true,
+         "repeatable":false
+      },
+      "Payload-Oxum":{
+         "required":true,
+         "repeatable":false
+      },
+   },
+   "Manifests-Required":[
+     "md5",
+     "sha256"
+   ],
+   "Allow-Fetch.txt":false,
+   "Serialization":"optional",
+   "Accept-Serialization":[
+      "application/zip",
+      "application/x-tar",
+      "application/x-gzip"
+   ],
+   "Tag-Manifests-Required":[
+     "md5"
+   ],
+   "Tag-Files-Required":[
+      "metadata.json"
+   ],
+   "Accept-BagIt-Version":[
+      "0.97"
+   ]
+}
